@@ -1,18 +1,24 @@
 #!/bin/zsh
-# This script runs an audit of the websie gugulet.hu
-# Version 1.0.0 (10 Feb 2021)
+# This script runs an audit of the website gugulet.hu
+# Version 1.1.0 (21 April 2021)
 
 # Export paths for use if the script is turned into an app using Platypus.
 export LC_ALL=en_US.UTF-8
 export LANG=en_US.UTF-8
+export BIN=/usr/local/bin/
 export PATH="/usr/local/bin:/usr/bin:/bin:/usr/sbin:/$"
 
 # Set variables and paths
-export FOLDER=/Users/gugulethu/Sites/gugulet.hu/
-export CSV=~/Sites/gugulet.hu/audit.csv
-export PAGES=https://gugulet.hu,https://gugulet.hu/projects,https://gugulet.hu/projects/adyen,https://gugulet.hu/resume,https://gugulet.hu/writing-services,https://gugulet.hu/writing-services/freelance-writing,https://gugulet.hu/writing-services/content-management,https://gugulet.hu/writing-services/editing-and-proofreading,https://gugulet.hu/writing-services/technical-writing,https://gugulet.hu/writing-services/web-development,https://gugulet.hu/terms-of-service,https://gugulet.hu/privacy-policy
+export GUGULETHU_FOLDER=~/Sites/gugulet.hu/
+export GUGULETHU_SCREENSHOT=~/Sites/gugulet.hu/Screenshots/
+export GUGULETHU_CSV=~/Sites/gugulet.hu/audit.csv
+export GUGULETHU_FILE=~/Sites/gugulet.hu/site-data.csv
+export PAGES=https://gugulet.hu,https://gugulet.hu/projects-design-code-photography/,https://gugulet.hu/resume-writer-technical-writer-content-manager,https://gugulet.hu/services-freelance-writing-content-management-editing,https://gugulet.hu/terms-of-service,https://gugulet.hu/privacy-policy
+export SIZAKELE_FOLDER=~/Sites/sizakelegumede.co.za/
+export SIZAKELE_SCREENSHOT=~/Sites/sizakelegumede.co.za/Screenshots/
+export SIZAKELE_CSV=~/Sites/sizakelegumede.co.za/audit.csv
+export SIZAKELE_FILE=~/Sites/sizakelegumede.co.za/site-data.csv
 export PACKAGES=site-audit-seo,capture-website
-export BIN=/usr/local/bin/
 
 echo "NOTIFICATION: Website audit starting..."
 
@@ -21,7 +27,7 @@ echo "NOTIFICATION: Website audit starting..."
 for i in $(echo $PACKAGES | sed "s/,/ /g")
      do
           if [ `ls $BIN | grep -c $i` -eq 1 ]; then
-               echo "NOTIFICATION: Prechecks complete"
+               echo "NOTIFICATION: Prechecks passed"
           else
                echo "NOTIFICATION: $i NPM package missing. Attempting install..."
                npm install $1
@@ -30,20 +36,33 @@ for i in $(echo $PACKAGES | sed "s/,/ /g")
           fi
 done
 
-# Run website audit and manipulate resulting CSV
-if site-audit-seo -u $PAGES  -p seo --lighthouse -e mixed_content_url,canonical,is_canonical,previousUrl,depth,schema_types,google_amp --no-remove-csv --no-json --no-open-file --out-dir $FOLDER --out-name audit; then
-     sed -i '' "s/^/$(date +'%Y.%m.%d');/" $CSV
+# Run website audit and manipulate resulting CSV for gugulet.hu
+if site-audit-seo -u https://gugulet.hu -p seo --lighthouse -e mixed_content_url,canonical,is_canonical,previousUrl,depth,schema_types,google_amp --no-remove-csv --no-json --no-open-file --out-dir $GUGULETHU_FOLDER --out-name audit; then
+     sed -i '' "s/^/$(date +'%Y.%m.%d');/" $GUGULETHU_CSV
      wait
-     cat <(tail +2 $CSV) >> ~/Sites/gugulet.hu/site-data.csv
+     cat <(tail +2 $GUGULETHU_CSV) >> $GUGULETHU_FILE
 else
      echo "NOTIFICATION: Site audit errors"
 fi
 
-# Run screenshots on all pages
+# Run website audit and manipulate resulting CSV for sizakelegumede.co.za
+if site-audit-seo -u https://sizakelegumede.co.za -p seo --lighthouse -e mixed_content_url,canonical,is_canonical,previousUrl,depth,schema_types,google_amp --no-remove-csv --no-json --no-open-file --out-dir $SIZAKELE_FOLDER --out-name audit; then
+     sed -i '' "s/^/$(date +'%Y.%m.%d');/" $SIZAKELE_CSV
+     wait
+     cat <(tail +2 $SIZAKELE_CSV) >> $SIZAKELE_FILE
+else
+     echo "NOTIFICATION: Site audit errors"
+fi
+
+# Run screenshots on all pages on gugulet.hu
 for i in $(echo $PAGES | sed "s/,/ /g")
 do
-     capture-website $(echo $i) --scale-factor=1 --overwrite --output=$(echo $FOLDER)$(basename $i)\ $(date +%Y%m%d).jpg --delay=15 --no-default-background --type=jpeg --hide-elements=".elementor-popup-modal"
-     capture-website $(echo $i) --scale-factor=1 --overwrite --output=$(echo $FOLDER)$(basename $i)\[m\]\ $(date +%Y%m%d).jpg --emulate-device="iPhone X" --delay=15 --no-default-background --type=jpeg --hide-elements=".elementor-popup-modal"
+     capture-website $(echo $i) --scale-factor=1 --overwrite --output=$(echo $GUGULETHU_SCREENSHOT)$(basename $i)\ $(date +%Y%m%d).jpg --no-default-background --type=jpeg --timeout=100000 --delay=20
+     capture-website $(echo $i) --scale-factor=1 --overwrite --output=$(echo $GUGULETHU_SCREENSHOT)$(basename $i)\[m\]\ $(date +%Y%m%d).jpg --emulate-device="iPhone X" --no-default-background --type=jpeg --timeout=100000 --delay=20
 done
+
+# Run screenshots on all pages on sizakelegumede.co.za
+capture-website https://sizakelegumede.co.za --scale-factor=1 --overwrite --output=$(echo $SIZAKELE_SCREENSHOT)$home\ $(date +%Y%m%d).jpg --no-default-background --type=jpeg --timeout=100000 --delay=20
+capture-website https://sizakelegumede.co.za --scale-factor=1 --overwrite --output=$(echo $SIZAKELE_SCREENSHOT)$home\[m\]\ $(date +%Y%m%d).jpg --emulate-device="iPhone X" --no-default-background --type=jpeg --timeout=100000 --delay=20
 
 echo "NOTIFICATION: Website audit complete"
