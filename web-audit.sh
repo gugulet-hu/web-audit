@@ -1,6 +1,6 @@
 #!/bin/zsh
 # This script runs an audit of the website gugulet.hu
-# Version 1.2.1 (11 June 2021)
+# Version 2.0.1 (13 June 2021)
 
 # Export paths for use if the script is turned into an app using Platypus.
 export LC_ALL=en_US.UTF-8
@@ -13,56 +13,48 @@ export GUGULETHU_CSV=~/Sites/gugulet.hu/audit.csv
 export GUGULETHU_FILE=~/Sites/gugulet.hu/site-data.csv
 export SIZAKELE_CSV=~/Sites/sizakelegumede.co.za/audit.csv
 export SIZAKELE_FILE=~/Sites/sizakelegumede.co.za/site-data.csv
-export PACKAGES=site-audit-seo,capture-website
 
-echo "NOTIFICATION: Website audit starting..."
+# Check that the right packages are installed. If not, install locally.
 
-# Check that the NPM packages are installed. If not, install locally.
-
-for i in $(echo $PACKAGES | sed "s/,/ /g")
-     do
-          if [ `ls $BIN | grep -c $i` -eq 1 ]; then
-               :
-          else
-               echo "NOTIFICATION: $i NPM package missing. Attempting install..."
-               npm install $1
-               wait
-               echo "NOTIFICATION: Restart the program"
-          fi
-done
-
-# Run website audit and manipulate resulting CSV for gugulet.hu
-if site-audit-seo -u https://gugulet.hu -p seo --lighthouse -e mixed_content_url,canonical,is_canonical,previousUrl,depth,schema_types,google_amp --no-remove-csv --no-json --no-open-file --out-dir ~/Sites/gugulet.hu/ --out-name audit; then
-     sed -i '' "s/^/$(date +'%Y.%m.%d');/" $GUGULETHU_CSV
+if [ `ls $BIN | grep -c site-audit-seo` -eq 1 ]; then
+     :
+else
+     echo "NOTIFICATION: NPM  packages missing. Attempting install..."
+     npm install -g site-audit-seo
      wait
-     cat <(tail +2 $GUGULETHU_CSV) >> $GUGULETHU_FILE
+     echo "NOTIFICATION: Restarting the program"
+     exec ./web-audit.sh
+fi
+
+# Function: Takes variables and runs aduit on websites.
+audit () {
+if site-audit-seo -u $1 -p seo -e mixed_content_url,canonical,is_canonical,previousUrl,depth,schema_types,google_amp,,canonical_count,h1,description,keywords,og_title,og_image,h1_count,h2_count,h3_count,h4_count --no-remove-csv --no-json --no-open-file --out-dir $2 --out-name audit; then
+     sed -i '' "s/^/$(date +'%Y.%m.%d');/" $3
+     wait
+     cat <(tail +2 $3) >> $4
 else
      echo "NOTIFICATION: Site audit errors"
 fi
+}
 
-# Run website audit and manipulate resulting CSV for sizakelegumede.co.za
-if site-audit-seo -u https://sizakelegumede.co.za -p seo --lighthouse -e mixed_content_url,canonical,is_canonical,previousUrl,depth,schema_types,google_amp --no-remove-csv --no-json --no-open-file --out-dir ~/Sites/sizakelegumede.co.za/ --out-name audit; then
-     sed -i '' "s/^/$(date +'%Y.%m.%d');/" $SIZAKELE_CSV
-     wait
-     cat <(tail +2 $SIZAKELE_CSV) >> $SIZAKELE_FILE
-else
-     echo "NOTIFICATION: Site audit errors"
-fi
+# Call audit function for these websites (and file locations).
+
+audit https://gugulet.hu ~/Sites/gugulet.hu/ $GUGULETHU_CSV $GUGULETHU_FILE
+audit https://sizakelegumede.co.za ~/Sites/sizakelegumede.co.za/ $SIZAKELE_CSV $SIZAKELE_FILE
 
 # Get today's values for speed and lighthouse score
-AVG=$(csvstat -c 4 --mean $GUGULETHU_CSV)
-SCORE=$(csvstat -c 26 --mean $GUGULETHU_CSV)
+TODAY=$(csvstat -c 4 --mean $GUGULETHU_CSV | sed 's/,//')
+AVG=$(csvstat -c 4 --mean $GUGULETHU_FILE | sed 's/,//')
+DIFF=$(expr ${TODAY%.*} - ${AVG%.*})
+STATUS=$(csvstat -c 3 --mean $GUGULETHU_CSV)
 
-# Get the difference between the overall average speed and score and today's
-DIFF_AVG=$(csvstat -c 4 --mean $GUGULETHU_FILE)-$(csvstat -c 5 --mean $GUGULETHU_CSV)
-DIFF_SCORE=$(csvstat -c 26 --mean $GUGULETHU_FILE)-$(csvstat -c 27 --mean $GUGULETHU_CSV)
+if [ $STATUS = 200 ]; then
+     STATUS="200 - No website errors"
+else
+     STATUS="!!!Website errors!!!"
+fi
 
 # Echo the value in a notification
-echo 
-"NOTIFICATION: 
-Speed: $(echo ${AVG%.*})ms\n
-Change: $(echo ${DIFF_AVG%.*})ms\n
-Score: $(echo ${SCORE%.})\n
-Change: $(echo ${DIFF_SCORE%.*})\n\n
-
-Audit complete."
+echo "NOTIFICATION: Speed: $(echo ${TODAY%.*})ms"
+echo "NOTIFICATION: Change: $(echo ${DIFF})ms"
+echo "NOTIFICATION: Status: $(echo ${STATUS})"
