@@ -44,17 +44,13 @@ audit https://sizakelegumede.co.za ~/Sites/sizakelegumede.co.za/ $SIZAKELE_CSV $
 
 # Get today's values for speed and lighthouse score
 TODAY=$(csvstat -c 4 --mean $GUGULETHU_CSV | sed 's/,//')
-AVG=$(csvstat -c 4 --mean $GUGULETHU_FILE | sed 's/,//')
-DIFF=$(expr ${TODAY%.*} - ${AVG%.*})
 STATUS=$(csvstat -c 3 --mean $GUGULETHU_CSV)
 
 if [ $STATUS = 200 ]; then
-     STATUS="200 - No website errors"
+     :
 else
-     STATUS="!!!Website errors!!!"
+     echo "NOTIFICATION: Status: Website errors"
 fi
 
 # Echo the value in a notification
 echo "NOTIFICATION: Speed: $(echo ${TODAY%.*})ms"
-echo "NOTIFICATION: Change: $(echo ${DIFF})ms"
-echo "NOTIFICATION: Status: $(echo ${STATUS})"
